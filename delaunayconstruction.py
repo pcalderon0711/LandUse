@@ -336,7 +336,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
                             else:
                                 network_index = len(region_samples) + multiCount
                                 multiCount += 1
-                            G.add_node(network_index, position = coordSample, area = area,
+                            G.add_node(network_index, position = coordSample, area = area, density = 1.0 * area / totalArea,
                                        landUse = region_land_use[sampleIndex], pointList = pointList, polygon = polygon)
                             multiLookUp.append(sampleIndex)
                                        
@@ -344,7 +344,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
                         area = polygon.area
                         #sampleIndex = list(lookup).index(index)
                         coordSample = region_samples[sampleIndex]
-                        G.add_node(sampleIndex, position = coordSample, area = area, landUse = region_land_use[sampleIndex]\
+                        G.add_node(sampleIndex, position = coordSample, area = area, density = 1.0 * area / totalArea, landUse = region_land_use[sampleIndex]\
                             , pointList = pointList, polygon = polygon)  
     
     minimum = len(region_samples)

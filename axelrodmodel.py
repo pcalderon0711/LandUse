@@ -146,7 +146,7 @@ def run_model(path, numSample, numType, numStep, dist='uniform',\
         label = "I", color = "blue")
     plt.legend()
     plt.xlabel('time step')
-    plt.ylabel('normalized land area')  
+    plt.ylabel('density')  
     plt.xlim(0,numStep)
     plt.ylim(-0.01,1.01)
     plt.savefig('averageareadensity{0}_{1}_scale{2}.png'.format(\
@@ -162,7 +162,7 @@ def run_model(path, numSample, numType, numStep, dist='uniform',\
         label = "I", color = "blue")
     plt.legend()
     plt.xlabel('time step')
-    plt.ylabel('normalized land area')  
+    plt.ylabel('density')  
     plt.xlim(0,numStep)
     plt.ylim(-0.01,1.01)
     plt.savefig('averagephenotypedensity{0}_{1}_scale{2}.png'.format\
@@ -506,18 +506,19 @@ def get_land_area_per_type(networks, landUse):
     """
     numType = 3
     total = np.array([0]*numType, dtype='f')
+    region_area = np.array([0]*len(networks), dtype='f')
     for network_index, network in enumerate(networks):
-        region_land_use = nx.get_node_attributes(network,'landUse')
-        area = nx.get_node_attributes(network,'area')
+        region_area[network_index] = sum(nx.get_node_attributes(network,'area'))
+        # region_land_use = nx.get_node_attributes(network,'landUse')
+        density = nx.get_node_attributes(network,'density')
         region_total = []
         for landType in xrange(numType):
-            print region_land_use
-            region_area = np.sum([np.array(landUse[i][landType]) * area[i] for \
+            region_density = np.sum([np.array(landUse[i][landType]) * density[i] for \
                 i in landUse[network_index].keys()])
-            region_total.append(region_area)
-        total += np.array(region_total)
+            region_total.append(region_density)
+        total += np.array(region_total) * (region_area)
 
-    return list(total/sum(total))
+    return list((total / sum(total)) / sum(region_area))
     
 #def get_land_area_per_type(network, landUse):
 #    """
@@ -545,14 +546,17 @@ def get_max_density_area(networks, landUse):
     """
 
     numType = 3
-    area = np.array([0]*numType, dtype="f")  
+    density = np.array([0]*numType, dtype="f")  
+    region_area = np.array([0]*len(networks), dtype="f")  
     for network_index, network in enumerate(networks):
+        temp_density = np.array([0]*numType, dtype="f")  
+        region_area[network_index] = sum(nx.get_node_attributes(network,'area'))
         for index in landUse[network_index].keys():
             if list(network.node[index]['landUse']).count(max(network.node[index]\
                 ['landUse'])) == 1:
                 maxIndex = list(network.node[index]['landUse']).index(max(\
                     network.node[index]['landUse']))
-                area[maxIndex] += network.node[index]['area']
+                temp_density[maxIndex] += network.node[index]['density']
             else:
                 withMaxLandUse = []
                 for index2, value in enumerate(network.node[index]['landUse']):
@@ -561,23 +565,23 @@ def get_max_density_area(networks, landUse):
     
                 # this involves double-counting
                 for maxIndex in withMaxLandUse:            
-                    area[maxIndex] += network.node[index]['area']            
+                    temp_density[maxIndex] += network.node[index]['density']            
+        density += temp_density * region_area
+    return density/(sum(density) * sum(region_area))
 
-    return area/sum(area)
-
-def plot_area_density(area, numSample, dist, scale, run):
+def plot_area_density(density, numSample, dist, scale, run):
     """
     Plot the density of each landuse type.
     Save a csv file of the data in the plot.
     """
 
-    a,b,c = zip(*area)    
+    a,b,c = zip(*density)    
     plt.plot(range(len(a)), a, color = 'red', label = 'D')
     plt.plot(range(len(b)), b, color = 'green', label = 'U')
     plt.plot(range(len(c)), c, color = 'blue', label = 'I')
     plt.legend()
     plt.xlabel('time step')
-    plt.ylabel('normalized land area')
+    plt.ylabel('density')
     plt.xlim(0, len(a))
     plt.ylim(-0.01, 1.01)
     plt.savefig('density_sample{0}_run{1}_dist{2}_scale{3}.png'.format(\
@@ -589,7 +593,7 @@ def plot_area_density(area, numSample, dist, scale, run):
         numSample, str(run).zfill(2), dist, scale),'w')
     g.write('step,d,u,i\n')
 
-    for index in xrange(len(area)):
+    for index in xrange(len(density)):
 
         g.write('{0},{1},{2},{3}\n'.format(index, a[index], b[index], c[index]))
 
@@ -625,19 +629,19 @@ def plot_area_density(area, numSample, dist, scale, run):
 #
 #    g.close()
 
-def plot_area_phenotype(area, numSample, dist, scale, run):
+def plot_area_phenotype(density, numSample, dist, scale, run):
     """
     Plot the phenotype of the map.
     Save a csv file of the data in the plot.
     """
 
-    a,b,c = zip(*area)    
+    a,b,c = zip(*density)    
     plt.plot(range(len(a)), a, color = 'red', label = 'D')
     plt.plot(range(len(b)), b, color = 'green', label = 'U')
     plt.plot(range(len(c)), c, color = 'blue', label = 'I')
     plt.legend()
     plt.xlabel('time step')
-    plt.ylabel('normalized land area')
+    plt.ylabel('density')
     plt.xlim(0,len(a))
     plt.ylim(-0.01,1.01)
     plt.savefig('phenotype_sample{0}_run{1}_{2}_scale{3}.png'.format(\
@@ -649,7 +653,7 @@ def plot_area_phenotype(area, numSample, dist, scale, run):
         numSample, str(run).zfill(2), dist, scale),'w')
     g.write('step,d,u,i\n')
 
-    for index in xrange(len(area)):
+    for index in xrange(len(density)):
 
         g.write('{0},{1},{2},{3}\n'.format(index, a[index], b[index], c[index]))
 
