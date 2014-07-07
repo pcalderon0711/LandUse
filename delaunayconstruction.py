@@ -250,6 +250,9 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
     G = nx.Graph()
     region_samples = np.asarray(region_samples)
     
+    multiCount = 0    
+    multiLookUp = []    
+    
     # construct voronoi object
     vor = Voronoi(region_samples) 
     # return neighborlist for each node in network
@@ -323,13 +326,37 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
 
                     polygon = Polygon(pointList)
                     polygon = region_boundary.intersection(polygon)
-                    print type(polygon)
-                    area = polygon.area
-                    #sampleIndex = list(lookup).index(index)
-                    corrSample = region_samples[sampleIndex]
-                    G.add_node(sampleIndex, position = corrSample, area =\
-                        1.0 * area / totalArea, landUse = region_land_use[sampleIndex]\
-                        , pointList = pointList, polygon = polygon)    
+                    if polygon.geom_type == 'MultiPolygon':
+                        for index, p in enumerate(polygon):
+                            area = p.area
+                            pointList = list(p.exterior.coords)
+                            coordSample = p.centroid
+                            if index == 0:
+                                network_index = sampleIndex
+                            else:
+                                network_index = len(region_samples) + multiCount
+                                multiCount += 1
+                            G.add_node(network_index, position = coordSample, area = area,
+                                       landUse = region_land_use[sampleIndex], pointList = pointList, polygon = polygon)
+                            multiLookUp.append(sampleIndex)
+                                       
+                    else:
+                        area = polygon.area
+                        #sampleIndex = list(lookup).index(index)
+                        coordSample = region_samples[sampleIndex]
+                        G.add_node(sampleIndex, position = coordSample, area = area, landUse = region_land_use[sampleIndex]\
+                            , pointList = pointList, polygon = polygon)  
+    
+    minimum = len(region_samples)
+    for index in xrange(minimum, len(G.nodes())):
+        neighbors = []
+        starting_from_zero = index - minimum
+        focusPolygon = G.node[index]['polygon']
+        for nindex in neighborList[starting_from_zero]:
+            neighborPolygon = G.node[nindex]['polygon']
+            if focusPolygon.touches(neighborPolygon):
+                neighbors.append(nindex)
+        neighborList.append(neighbors)
         
     for index in G.nodes():
         
@@ -511,7 +538,6 @@ def plot_region(network, fig, ax):
             aa=False)
             ax.add_patch(patch)
         except AssertionError:
-            print len(polygon)
             for p in polygon:
                 patch = PolygonPatch(p, fc = color_dict[maxIndex], ec = "none",\
                 aa=False)
