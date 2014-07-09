@@ -11,10 +11,10 @@ from scipy.spatial import Delaunay
 from scipy.spatial import Voronoi
 import numpy as np
 import networkx as nx
+import extractregions
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon, Point, LineString
+from shapely.geometry import Polygon, Point
 from descartes.patch import PolygonPatch
-from extractregions import extract_regions
 
 def return_sample_list(num, regions, dist, scale):
     """
@@ -534,12 +534,12 @@ def plot_region(network, fig, ax):
 
         polygon = network.node[index]['polygon']
         try:
-            patch = PolygonPatch(polygon, fc = color_dict[maxIndex], ec = "none",\
+            patch = PolygonPatch(polygon, fc = color_dict[maxIndex], ec = "black",\
             aa=False)
             ax.add_patch(patch)
         except AssertionError:
             for p in polygon:
-                patch = PolygonPatch(p, fc = color_dict[maxIndex], ec = "none",\
+                patch = PolygonPatch(p, fc = color_dict[maxIndex], ec = "black",\
                 aa=False)
                 ax.add_patch(patch)
 
@@ -614,14 +614,17 @@ def plot_regions(networks, dimensions, num, run, iteration, dist, scale):
 #    plt.close()
             
 if __name__ == "__main__":
-    path = "c.png"
+    
+    regionpath = "regions.png"
+    samplepath = "samples.png"
     dist = "uniform"
     scale = 0.2
     numType=3
     run=0
     numSample=100
-    regions, dimensions = extract_regions(path)
-    sampleList = return_sample_list(numSample, regions, dist, scale)
+    regions, dimensions = extractregions.extract_regions(regionpath)
+    sampleList = extractregions.extract_samples(samplepath, regions)
+#    sampleList = return_sample_list(numSample, regions, dist, scale)
     landUse = return_land_use(sampleList, numType)
     networks = construct_delaunay_networks(sampleList, landUse, regions)  
     plot_regions(networks, dimensions, numSample, run, 0, dist, scale)

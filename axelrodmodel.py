@@ -27,10 +27,11 @@ def run_model(path, numSample, numType, numStep, dist='uniform',\
         numIteration = numStep
         
     run = 0
+    sampleList = return_sample_list(numSample, regions, dist, scale)
+    landUse = return_land_use(sampleList, numType)
+
     while run < numRun:
-        sampleList = return_sample_list(numSample, regions, dist, scale)
-        landUse = return_land_use(sampleList, numType)
-        networks = construct_delaunay_networks(sampleList, landUse, regions)  
+        networks = construct_delaunay_networks(sampleList, landUse, regions) 
         #return_max(wmap, shape, dist, scale, 0, run)
         
         plot_regions(networks, dimensions, numSample, run, 0, dist, scale)
