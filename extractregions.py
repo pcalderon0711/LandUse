@@ -7,6 +7,7 @@ Created on Sun Jul 06 22:39:01 2014
 
 import numpy as np
 import Image
+from itertools import permutations
 from skimage.measure import find_contours
 from shapely.geometry import Polygon, Point
 
@@ -24,6 +25,7 @@ def extract_regions(filepath):
     
     # container for corrected (x, y)'s
     regions = []
+    region_polygons = []
     
     # loop to reverse each (x, y)
     for region in inv_regions:        
@@ -31,8 +33,19 @@ def extract_regions(filepath):
         for y, x in region:            
             current.append([x, y])          
         regions.append(current)
-      
-    return regions, img.size
+        region_polygons.append(Polygon(current))
+    
+    interior = set()
+    region_index_permutations = permutations(xrange(len(regions)), 2)
+    for i, j in region_index_permutations:
+        if region_polygons[i].contains(region_polygons[j]):
+            interior.add(j)
+
+    interior = list(interior)
+    interior.sort()
+    interior.reverse()
+            
+    return regions, interior, img.size
     
 def extract_samples(samplepath, regions):
     """
@@ -57,7 +70,6 @@ def extract_samples(samplepath, regions):
     sorted_samples = [[]] * len(regions)
     
     i = 0
-    print len(samples)
     for sample in samples:
         #print i
         i+=1

@@ -241,11 +241,14 @@ def return_neighbor_list(region_samples):
 
     return neighbor_list_of_region   
             
-def construct_delaunay_network_of_region(region, region_samples, region_land_use):
+def construct_delaunay_network_of_region(region, region_samples, region_land_use, interior_polygons):
     """
     Construct the delaunay network of a region from region samples and land use.
     """
     region_boundary = Polygon(region)
+    for interior in interior_polygons:
+        if interior.within(region_boundary):
+            region_boundary = region_boundary.difference(interior)
     totalArea = region_boundary.area
     G = nx.Graph()
     region_samples = np.asarray(region_samples)
@@ -326,6 +329,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
 
                     polygon = Polygon(pointList)
                     polygon = region_boundary.intersection(polygon)
+                    
                     if polygon.geom_type == 'MultiPolygon':
                         for index, p in enumerate(polygon):
                             area = p.area
@@ -493,13 +497,16 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
 #    print "-done constructing network-"
 #    return G
 
-def construct_delaunay_networks(sample_list, land_use, regions):
+def construct_delaunay_networks(sample_list, land_use, regions, interior_indices):
     networks = []
-    for index in xrange(len(regions)):
+    interior_polygons = []
+    for index in interior_indices:
+        interior_polygons.append(Polygon(regions[index]))
+    for index in [i for i in xrange(len(regions)) if i not in interior_indices]:
         region = regions[index]
         region_samples = sample_list[index]
         region_land_use = land_use[index]
-        network = construct_delaunay_network_of_region(region, region_samples, region_land_use)
+        network = construct_delaunay_network_of_region(region, region_samples, region_land_use, interior_polygons)
         networks.append(network)
     return networks
     
@@ -622,10 +629,10 @@ if __name__ == "__main__":
     numType=3
     run=0
     numSample=100
-    regions, dimensions = extractregions.extract_regions(regionpath)
+    regions, interior_indices, dimensions = extractregions.extract_regions(regionpath)
     sampleList = extractregions.extract_samples(samplepath, regions)
 #    sampleList = return_sample_list(numSample, regions, dist, scale)
     landUse = return_land_use(sampleList, numType)
-    networks = construct_delaunay_networks(sampleList, landUse, regions)  
+    networks = construct_delaunay_networks(sampleList, landUse, regions, interior_indices)  
     plot_regions(networks, dimensions, numSample, run, 0, dist, scale)
 
