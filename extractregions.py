@@ -6,6 +6,7 @@ Created on Sun Jul 06 22:39:01 2014
 """
 
 import numpy as np
+import os
 import Image
 from itertools import permutations
 from skimage.measure import find_contours
@@ -113,7 +114,11 @@ def randomly_sample(imgpath, number):
     while count < number:
         sampled.putpixel((np.random.random_integers(0, w - 1), np.random.random_integers(0, h - 1)), 255)
         count += 1
-    sampled.save("samples.png")
+        
+    head, tail = os.path.split(imgpath)
+    print head
+    print tail
+    sampled.save(head + "\\sample_" + tail)
 
 if __name__ == "__main__":    
     randomly_sample("visayas.png", 5000)

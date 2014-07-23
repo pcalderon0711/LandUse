@@ -317,7 +317,7 @@ def plot_region(network, fig, ax):
         4 : 'blue',
         5 : 'brown'
     }
-    
+
     pointList = nx.get_node_attributes(network, 'pointList')
     pointList = pointList.values()
 
@@ -348,7 +348,7 @@ def plot_region(network, fig, ax):
                 aa=False)
                 ax.add_patch(patch)
 
-def plot_regions(networks, dimensions, num, run, iteration, dist, scale):
+def plot_regions(networks, regionpath, dimensions, num, run, iteration, dist, scale):
     fig = plt.figure(figsize = (10, 10), facecolor = "black")
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0,dimensions[0])
@@ -358,8 +358,8 @@ def plot_regions(networks, dimensions, num, run, iteration, dist, scale):
 
     ax.set_aspect('equal')
     plt.axis('off')
-    plt.savefig('graph_sample{0}_run{1}_step{2}_{3}_std{4}.png'.\
-        format(num, str(run).zfill(2), str(iteration).zfill(6), dist, scale), \
+    plt.savefig('{0}_sample{1}_run{2}_step{3}_{4}_std{5}.png'.\
+        format(regionpath[:-4], num, str(run).zfill(2), str(iteration).zfill(6), dist, scale), \
         bbox_inches='tight', pad_inches=0, facecolor=fig.get_facecolor())
     plt.close()
 
@@ -377,4 +377,4 @@ if __name__ == "__main__":
 #    sampleList = return_sample_list(numSample, regions, dist, scale)
     landUse = return_land_use(sampleList, numType)
     networks = construct_delaunay_networks(sampleList, landUse, regions, interior_indices)  
-    plot_regions(networks, dimensions, numSample, run, 0, dist, scale)
+    plot_regions(networks, regionpath, dimensions, numSample, run, 0, dist, scale)
