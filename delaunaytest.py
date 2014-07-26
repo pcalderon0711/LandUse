@@ -68,7 +68,7 @@ numType=3
 run=0
 numSample=100
 
-for path, samplepath in paths[5:]:
+for path, samplepath in paths:
     print "doing " + path
     path = imgpath + path
     extractregions.randomly_sample(path, 1000)

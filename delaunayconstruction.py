@@ -13,7 +13,7 @@ import numpy as np
 import networkx as nx
 import extractregions
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, LineString
 from descartes.patch import PolygonPatch
 
 #countez = 0
@@ -155,128 +155,156 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
 #    ax.add_patch(patch)
 #    plt.plot()
 
-    
     for interior in interior_polygons:
         if interior.within(region_boundary):
             region_boundary = region_boundary.difference(interior)
     
     totalArea = region_boundary.area
+
     G = nx.Graph()
     region_samples = np.asarray(region_samples)
 
-    multiCount = 0    
-    multiLookUp = []    
-    
-    # construct voronoi object
-    vor = Voronoi(region_samples) 
-    # return neighborlist for each node in network
-    neighborList = return_neighbor_list(region_samples) 
-# FROM https://gist.github.com/pv/8036995#file-colorized_voronoi-py-L48 
-    
-    new_regions = []
-    new_vertices = vor.vertices.tolist()
-    center = vor.points.mean(axis=0)
-    radius = 100000
-
-    # Construct a map containing all ridges for a given point
-    all_ridges = {}
-
-    for (p1, p2), (v1, v2) in zip(vor.ridge_points, vor.ridge_vertices):
-        all_ridges.setdefault(p1, []).append((p2, v1, v2))
-        all_ridges.setdefault(p2, []).append((p1, v1, v2))    
-
-    for p1, region in enumerate(vor.point_region):
-        vertices = vor.regions[region]
-        if all([v >= 0 for v in vertices]):
-            # finite region
-            new_regions.append([p1,vertices])
-            continue
+    if len(region_samples) == 1:
+        G.add_node(0, position = region_samples[0], area = region_boundary.area, density = 1.0 * region_boundary.area / totalArea, landUse = region_land_use[0]\
+            , pointList = region_boundary.boundary, polygon = region_boundary)  
         
-        # reconstruct a non-finite region
-        ridges = all_ridges[p1]
-        new_region = [v for v in vertices if v >= 0]
- 
-        for p2, v1, v2 in ridges:
-            if v2 < 0:
-                v1, v2 = v2, v1
-            if v1 >= 0:
-                # finite ridge: already in the region
-                continue
- 
-            # Compute the missing endpoint of an infinite ridge
-            t = vor.points[p2] - vor.points[p1] # tangent
-            t /= np.linalg.norm(t)
-            n = np.array([-t[1], t[0]])  # normal
- 
-            midpoint = vor.points[[p1, p2]].mean(axis=0)
-            direction = np.sign(np.dot(midpoint - center, n)) * n
-            far_point = vor.vertices[v2] + direction * radius
-            new_region.append(len(new_vertices))
-            new_vertices.append(far_point.tolist())
- 
-        # sort region counterclockwise
-        vs = np.asarray([new_vertices[v] for v in new_region])
-        c = vs.mean(axis=0)
-        angles = np.arctan2(vs[:,1] - c[1], vs[:,0] - c[0])
-        new_region = np.array(new_region)[np.argsort(angles)]
- 
-        # finish
-        new_regions.append([p1, new_region.tolist()])
+    elif len(region_samples) == 2:
+        midpoint = (region_samples[0] + region_samples[1]) / 2.
+        if region_samples[1][1] - region_samples[0][1] != 0:
+            slope = 1.0 * (region_samples[1][1] - region_samples[0][1]) / (region_samples[1][0] - region_samples[0][0])
+            perpendicular_slope = -1.0 / slope
+        else:
+            perpendicular_slope = 1000
+        x = np.linspace(0, 10000)
+        y = perpendicular_slope * (x - midpoint[0]) + midpoint[1]
+        line = LineString(zip(x, y))
+        pline = line.buffer(0.00000000001)
+        polygons = region_boundary.difference(pline)
+        
+        for polygon in polygons:
+            if polygon.contains(Point(region_samples[0])):
+                G.add_node(0, position = region_samples[0], area = polygon.area, density = 1.0 * polygon.area / totalArea, landUse = region_land_use[0]\
+                    , pointList = polygon.boundary, polygon = polygon)  
+            else:
+                G.add_node(1, position = region_samples[1], area = polygon.area, density = 1.0 * polygon.area / totalArea, landUse = region_land_use[0]\
+                    , pointList = polygon.boundary, polygon = polygon)  
+        
+        G.add_edge(0, 1)
 
-    # iterate over each voronoi region
-    for sampleIndex, simplex in new_regions:     
-        if sampleIndex in region_land_use.keys():
-            simplex = np.asarray(simplex)            
-            # check if region contains vertex at infinity
-            if np.all(simplex >= 0):                 
-                # container of voronoi vertices per region
-                pointList = []                
-                for component in simplex:
-                    pointList.append((new_vertices[component][0], new_vertices\
-                        [component][1]))
+    elif len(region_samples) > 2:
+        multiCount = 0    
+        multiLookUp = []    
+        
+        # construct voronoi object
+        vor = Voronoi(region_samples) 
+        # return neighborlist for each node in network
+        neighborList = return_neighbor_list(region_samples) 
+    # FROM https://gist.github.com/pv/8036995#file-colorized_voronoi-py-L48 
+        
+        new_regions = []
+        new_vertices = vor.vertices.tolist()
+        center = vor.points.mean(axis=0)
+        radius = 100000
     
-                if len(pointList) > 2:
-      
-                    polygon = Polygon(pointList)
-                    polygon = region_boundary.intersection(polygon)
-                                    
-                    if polygon.geom_type == 'MultiPolygon':
-                        for index, p in enumerate(polygon):
-                            area = p.area
-                            pointList = list(p.exterior.coords)
-                            coordSample = p.centroid
-                            if index == 0:
-                                network_index = sampleIndex
-                            else:
-                                network_index = len(region_samples) + multiCount
-                                multiCount += 1
-                            G.add_node(network_index, position = coordSample, area = area, density = 1.0 * area / totalArea,
-                                       landUse = region_land_use[sampleIndex], pointList = pointList, polygon = polygon)
-                            multiLookUp.append(sampleIndex)
-                                       
-                    else:
-                        area = polygon.area
-                        #sampleIndex = list(lookup).index(index)
-                        coordSample = region_samples[sampleIndex]
-                        G.add_node(sampleIndex, position = coordSample, area = area, density = 1.0 * area / totalArea, landUse = region_land_use[sampleIndex]\
-                            , pointList = pointList, polygon = polygon)  
-
-    minimum = len(region_samples)
-    for index in xrange(minimum, len(G.nodes())):
-        neighbors = []
-        starting_from_zero = index - minimum
-        focusPolygon = G.node[index]['polygon']
-        for nindex in neighborList[starting_from_zero]:
-            neighborPolygon = G.node[nindex]['polygon']
-            if focusPolygon.touches(neighborPolygon):
-                neighbors.append(nindex)
-        neighborList.append(neighbors)
-    print multiCount, minimum, len(new_regions), len(G.nodes()), len(neighborList)
-
-    for index in G.nodes():
-        for nindex in neighborList[index]:
-            if nindex in G.nodes() and not (G.has_edge(index, nindex) or G.has_edge(nindex, index)):
-                    G.add_edge(index, nindex)
+        # Construct a map containing all ridges for a given point
+        all_ridges = {}
+    
+        for (p1, p2), (v1, v2) in zip(vor.ridge_points, vor.ridge_vertices):
+            all_ridges.setdefault(p1, []).append((p2, v1, v2))
+            all_ridges.setdefault(p2, []).append((p1, v1, v2))    
+    
+        for p1, region in enumerate(vor.point_region):
+            vertices = vor.regions[region]
+            if all([v >= 0 for v in vertices]):
+                # finite region
+                new_regions.append([p1,vertices])
+                continue
+            
+            # reconstruct a non-finite region
+            ridges = all_ridges[p1]
+            new_region = [v for v in vertices if v >= 0]
+     
+            for p2, v1, v2 in ridges:
+                if v2 < 0:
+                    v1, v2 = v2, v1
+                if v1 >= 0:
+                    # finite ridge: already in the region
+                    continue
+     
+                # Compute the missing endpoint of an infinite ridge
+                t = vor.points[p2] - vor.points[p1] # tangent
+                t /= np.linalg.norm(t)
+                n = np.array([-t[1], t[0]])  # normal
+     
+                midpoint = vor.points[[p1, p2]].mean(axis=0)
+                direction = np.sign(np.dot(midpoint - center, n)) * n
+                far_point = vor.vertices[v2] + direction * radius
+                new_region.append(len(new_vertices))
+                new_vertices.append(far_point.tolist())
+     
+            # sort region counterclockwise
+            vs = np.asarray([new_vertices[v] for v in new_region])
+            c = vs.mean(axis=0)
+            angles = np.arctan2(vs[:,1] - c[1], vs[:,0] - c[0])
+            new_region = np.array(new_region)[np.argsort(angles)]
+     
+            # finish
+            new_regions.append([p1, new_region.tolist()])
+    
+        # iterate over each voronoi region
+        for sampleIndex, simplex in new_regions:     
+            if sampleIndex in region_land_use.keys():
+                simplex = np.asarray(simplex)            
+                # check if region contains vertex at infinity
+                if np.all(simplex >= 0):                 
+                    # container of voronoi vertices per region
+                    pointList = []                
+                    for component in simplex:
+                        pointList.append((new_vertices[component][0], new_vertices\
+                            [component][1]))
+        
+                    if len(pointList) > 2:
+          
+                        polygon = Polygon(pointList)
+                        polygon = region_boundary.intersection(polygon)
+                                        
+                        if polygon.geom_type == 'MultiPolygon':
+                            for index, p in enumerate(polygon):
+                                area = p.area
+                                pointList = list(p.exterior.coords)
+                                coordSample = p.centroid
+                                if index == 0:
+                                    network_index = sampleIndex
+                                else:
+                                    network_index = len(region_samples) + multiCount
+                                    multiCount += 1
+                                G.add_node(network_index, position = coordSample, area = area, density = 1.0 * area / totalArea,
+                                           landUse = region_land_use[sampleIndex], pointList = pointList, polygon = polygon)
+                                multiLookUp.append(sampleIndex)
+                                           
+                        else:
+                            area = polygon.area
+                            #sampleIndex = list(lookup).index(index)
+                            coordSample = region_samples[sampleIndex]
+                            G.add_node(sampleIndex, position = coordSample, area = area, density = 1.0 * area / totalArea, landUse = region_land_use[sampleIndex]\
+                                , pointList = pointList, polygon = polygon)  
+    
+        minimum = len(region_samples)
+        for index in xrange(minimum, len(G.nodes())):
+            neighbors = []
+            starting_from_zero = index - minimum
+            focusPolygon = G.node[index]['polygon']
+            for nindex in neighborList[starting_from_zero]:
+                neighborPolygon = G.node[nindex]['polygon']
+                if focusPolygon.touches(neighborPolygon):
+                    neighbors.append(nindex)
+            neighborList.append(neighbors)
+    #    print multiCount, minimum, len(new_regions), len(G.nodes()), len(neighborList)
+    
+        for index in G.nodes():
+            for nindex in neighborList[index]:
+                if nindex in G.nodes() and not (G.has_edge(index, nindex) or G.has_edge(nindex, index)):
+                        G.add_edge(index, nindex)
 
 #    print "-done constructing network-"
     return G
@@ -361,8 +389,8 @@ def plot_regions(networks, regionpath, dimensions, num, run, iteration, dist, sc
 
 if __name__ == "__main__":
     
-    regionpath = "c.png"
-    samplepath = "s.png"
+    regionpath = "visayas.png"
+    samplepath = "samples.png"
     dist = "uniform"
     scale = 0.2
     numType=3

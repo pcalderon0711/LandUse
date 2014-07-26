@@ -28,7 +28,7 @@ def extract_regions(filepath):
     inv_regions = find_contours(img_as_array, 0.5)
 
     # boundary of image itself
-    map_boundary = Polygon(inv_regions[0])    
+    map_boundary = Polygon([(x,y) for y, x in inv_regions[0]])    
     
     # container for corrected (x, y)'s
     regions = []
@@ -39,19 +39,26 @@ def extract_regions(filepath):
         current = []        
         for y, x in region:
             current.append((x, y))  
-            plt.scatter(x,y)
         intersected = map_boundary.intersection(Polygon(current))  
         
         try:
             regions.append(intersected.boundary.coords)
-            x,y = intersected.boundary.coords.xy
-            plt.plot(x,y)
+
         except AttributeError:
             print type(intersected)
             print "error in " + os.path.split(filepath)[1][:-4]
             for i in intersected:
                 print type(i)
         region_polygons.append(intersected)
+        
+    fig = plt.figure(figsize = (10, 10), facecolor = "black")
+    ax = fig.add_subplot(111)#fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0,1300)
+    ax.set_ylim(0,1300)    
+    patch = PolygonPatch(intersected, fc = "none", ec = "green",\
+                aa=False)
+    ax.add_patch(patch)
+
     plt.savefig(filepath[:-4] + "outline.png")
     plt.close()
     
@@ -65,13 +72,13 @@ def extract_regions(filepath):
     interior.sort()
     interior.reverse()
 
-    region_boundary = Polygon(regions[0])
-    fig = plt.figure(figsize = (10, 10), facecolor = "black")
-    ax = fig.add_subplot(111)#fig.add_axes([0, 0, 1, 1])
-    patch = PolygonPatch(region_boundary, fc = "red", ec = "green",\
-                aa=False)
-    ax.add_patch(patch)
-    plt.plot()
+#    region_boundary = Polygon(regions[0])
+#    fig = plt.figure(figsize = (10, 10), facecolor = "black")
+#    ax = fig.add_subplot(111)#fig.add_axes([0, 0, 1, 1])
+#    patch = PolygonPatch(region_boundary, fc = "red", ec = "green",\
+#                aa=False)
+#    ax.add_patch(patch)
+#    plt.plot()
 
     print "#regions: " + str(len(regions))
     return regions, interior, img.size
