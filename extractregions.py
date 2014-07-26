@@ -26,7 +26,6 @@ def extract_regions(filepath):
             
     # x and y are inverted
     inv_regions = find_contours(img_as_array, 0.5)
-    print len(inv_regions)
 
     # boundary of image itself
     map_boundary = Polygon(inv_regions[0])    
@@ -40,14 +39,21 @@ def extract_regions(filepath):
         current = []        
         for y, x in region:
             current.append((x, y))  
-        intersected = Polygon(current).intersection(map_boundary)
-        print type(intersected)
+            plt.scatter(x,y)
+        intersected = map_boundary.intersection(Polygon(current))  
+        
         try:
-            regions.append(intersected.exterior.coords)
+            regions.append(intersected.boundary.coords)
+            x,y = intersected.boundary.coords.xy
+            plt.plot(x,y)
         except AttributeError:
+            print type(intersected)
+            print "error in " + os.path.split(filepath)[1][:-4]
             for i in intersected:
                 print type(i)
         region_polygons.append(intersected)
+    plt.savefig(filepath[:-4] + "outline.png")
+    plt.close()
     
     interior = set()
     region_index_permutations = permutations(xrange(len(regions)), 2)
@@ -59,6 +65,15 @@ def extract_regions(filepath):
     interior.sort()
     interior.reverse()
 
+    region_boundary = Polygon(regions[0])
+    fig = plt.figure(figsize = (10, 10), facecolor = "black")
+    ax = fig.add_subplot(111)#fig.add_axes([0, 0, 1, 1])
+    patch = PolygonPatch(region_boundary, fc = "red", ec = "green",\
+                aa=False)
+    ax.add_patch(patch)
+    plt.plot()
+
+    print "#regions: " + str(len(regions))
     return regions, interior, img.size
     
 def extract_samples(samplepath, regions):
@@ -81,7 +96,6 @@ def extract_samples(samplepath, regions):
 #        for y in xrange(int(sample_as_array.shape[1])) if \
 #        sample_as_array[x, y] != 0]
 
-    print len(samples)
     sorted_samples = dict()
     for index in xrange(len(region_polygons)):
         sorted_samples[index] = []
@@ -116,9 +130,12 @@ def randomly_sample(imgpath, number):
         count += 1
         
     head, tail = os.path.split(imgpath)
-    print head
-    print tail
     sampled.save(head + "\\sample_" + tail)
 
 if __name__ == "__main__":    
     randomly_sample("visayas.png", 5000)
+    
+    
+# error is in extract_regions part na may intersect with map_boundary
+# for 1- sample areas, do not voronoi anymore. yun na mismo.
+# for 2- sample area, think of a solution

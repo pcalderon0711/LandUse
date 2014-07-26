@@ -68,14 +68,16 @@ numType=3
 run=0
 numSample=100
 
-for path, samplepath in paths:
+for path, samplepath in paths[5:]:
+    print "doing " + path
     path = imgpath + path
-    print path
     extractregions.randomly_sample(path, 1000)
     samplepath = imgpath + samplepath  
-    print samplepath
     regions, interior_indices, dimensions = extractregions.extract_regions(path)
     sampleList = extractregions.extract_samples(samplepath, regions) 
     landUse = delaunayconstruction.return_land_use(sampleList, numType)
-    networks = delaunayconstruction.construct_delaunay_networks(sampleList, landUse, regions, interior_indices)  
-    delaunayconstruction.plot_regions(networks, path, dimensions, numSample, run, 0, dist, scale)
+    try:
+        networks = delaunayconstruction.construct_delaunay_networks(sampleList, landUse, regions, interior_indices)  
+        delaunayconstruction.plot_regions(networks, path, dimensions, numSample, run, 0, dist, scale)
+    except:
+        print "ERROR in " + path

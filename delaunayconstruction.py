@@ -42,7 +42,7 @@ def return_sample_list(num, regions, dist, scale):
                 region_samples.append(candidate)
         sample_list.append(region_samples)
  
-    print "-done sampling-"
+#    print "-done sampling-"
     return sample_list    
 
 def return_land_use_of_region(region_samples, numType, mode=0):
@@ -176,7 +176,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
     new_regions = []
     new_vertices = vor.vertices.tolist()
     center = vor.points.mean(axis=0)
-    radius = 1000  
+    radius = 100000
 
     # Construct a map containing all ridges for a given point
     all_ridges = {}
@@ -234,7 +234,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
                 for component in simplex:
                     pointList.append((new_vertices[component][0], new_vertices\
                         [component][1]))
-
+    
                 if len(pointList) > 2:
       
                     polygon = Polygon(pointList)
@@ -260,7 +260,7 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
                         coordSample = region_samples[sampleIndex]
                         G.add_node(sampleIndex, position = coordSample, area = area, density = 1.0 * area / totalArea, landUse = region_land_use[sampleIndex]\
                             , pointList = pointList, polygon = polygon)  
-    
+
     minimum = len(region_samples)
     for index in xrange(minimum, len(G.nodes())):
         neighbors = []
@@ -271,17 +271,14 @@ def construct_delaunay_network_of_region(region, region_samples, region_land_use
             if focusPolygon.touches(neighborPolygon):
                 neighbors.append(nindex)
         neighborList.append(neighbors)
+    print multiCount, minimum, len(new_regions), len(G.nodes()), len(neighborList)
 
     for index in G.nodes():
-        
-        for nindex in range(len(list(neighborList[index]))):
+        for nindex in neighborList[index]:
+            if nindex in G.nodes() and not (G.has_edge(index, nindex) or G.has_edge(nindex, index)):
+                    G.add_edge(index, nindex)
 
-            if index != neighborList[index][nindex] and neighborList[index]\
-                [nindex] in G.nodes():
-
-                    G.add_edge(index, neighborList[index][nindex])
-
-    print "-done constructing network-"
+#    print "-done constructing network-"
     return G
 
 def construct_delaunay_networks(sample_list, land_use, regions, interior_indices):
@@ -293,13 +290,11 @@ def construct_delaunay_networks(sample_list, land_use, regions, interior_indices
         interior_polygons.append(Polygon(regions[index]))
     for index in [i for i in xrange(len(regions)) if i not in interior_indices]:
         region = regions[index]
+        region_boundary = Polygon(region)
         region_samples = sample_list[index]
         region_land_use = land_use[index]
-        try:
-            network = construct_delaunay_network_of_region(region, region_samples, region_land_use, interior_polygons)
-            networks.append(network)
-        except:
-            pass
+        network = construct_delaunay_network_of_region(region, region_samples, region_land_use, interior_polygons)
+        networks.append(network)
     return networks
     
 def plot_region(network, fig, ax):
@@ -353,6 +348,7 @@ def plot_regions(networks, regionpath, dimensions, num, run, iteration, dist, sc
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_xlim(0,dimensions[0])
     ax.set_ylim(0,dimensions[1])    
+    print "# networks: " + str(len(networks))
     for network in networks:
         plot_region(network, fig, ax)
 
@@ -365,8 +361,8 @@ def plot_regions(networks, regionpath, dimensions, num, run, iteration, dist, sc
 
 if __name__ == "__main__":
     
-    regionpath = "visayas.png"
-    samplepath = "samples.png"
+    regionpath = "c.png"
+    samplepath = "s.png"
     dist = "uniform"
     scale = 0.2
     numType=3
