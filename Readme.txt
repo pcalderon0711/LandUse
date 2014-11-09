@@ -1,7 +1,5 @@
-THESIS CODES
+LAND USE
 ============
-
-Dump for codes used in my undergrad thesis.
 
 extractregions.py
  - takes as input an Image file and spews out a list of the points (x,y) of the
